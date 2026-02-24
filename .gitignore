@@ -7,6 +7,6 @@
 .cxx
 local.properties
 /.kotlin
-.idea
+.idea/
 app/src/main/assets/template.apk
 /app/build

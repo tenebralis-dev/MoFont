@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">Fonts</string>
+    <string name="app_name">MoFont</string>
     
     <string name="nav_home">Home</string>
     <string name="title_font_installer">Font installer</string>
