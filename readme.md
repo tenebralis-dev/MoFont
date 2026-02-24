@@ -1,6 +1,6 @@
 ## MoFont 墨字
 
-基于 [Fonts Manager](https://github.com/nicholasgasior/fonts) 二次开发
+基于 [Fonts Manager](https://github.com/jeeneo/fonts) 二次开发
 
 在 One UI 8 上免 root 安装自定义字体，支持 Shizuku
 
