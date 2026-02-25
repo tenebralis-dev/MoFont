@@ -103,6 +103,10 @@
     <string name="library_section_local">本地字体 (%d)</string>
     <string name="library_section_downloaded">下载字体 (%d)</string>
 
+    <string name="rescue_title">一键救援</string>
+    <string name="rescue_description">如果字体导致显示异常，点击前往字体设置切换回系统默认字体。</string>
+    <string name="rescue_button">前往设置</string>
+
     <string name="download_title">下载字体</string>
     <string name="download_url_hint">字体 URL (.ttf)</string>
     <string name="download_start">下载</string>

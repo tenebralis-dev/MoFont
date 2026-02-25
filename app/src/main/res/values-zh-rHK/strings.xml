@@ -103,6 +103,10 @@
     <string name="library_section_local">本機字型 (%d)</string>
     <string name="library_section_downloaded">下載字型 (%d)</string>
 
+    <string name="rescue_title">一鍵救援</string>
+    <string name="rescue_description">如果字體導致顯示異常，點擊前往字體設定切換回系統預設字體。</string>
+    <string name="rescue_button">前往設定</string>
+
     <string name="download_title">下載字型</string>
     <string name="download_url_hint">字型 URL (.ttf)</string>
     <string name="download_start">下載</string>

@@ -101,6 +101,10 @@
     <string name="library_section_local">Local fonts (%d)</string>
     <string name="library_section_downloaded">Downloaded fonts (%d)</string>
 
+    <string name="rescue_title">Quick Rescue</string>
+    <string name="rescue_description">If your font causes display issues, tap to open font settings and switch back to the default font.</string>
+    <string name="rescue_button">Go to Settings</string>
+
     <string name="download_title">Download font</string>
     <string name="download_url_hint">Font URL (.ttf)</string>
     <string name="download_start">Download</string>

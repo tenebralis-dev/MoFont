@@ -11,6 +11,7 @@ import android.util.Log
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -721,6 +722,8 @@ fun LibraryScreen(
         } else {
             val localFonts = libraryViewModel.fontList.filter { it.source == FontSource.LOCAL }
             val downloadedFonts = libraryViewModel.fontList.filter { it.source == FontSource.DOWNLOADED }
+            var localExpanded by remember { mutableStateOf(true) }
+            var downloadedExpanded by remember { mutableStateOf(true) }
 
             Column(Modifier.fillMaxSize().padding(innerPadding)) {
                 Surface(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.fillMaxWidth()) {
@@ -740,16 +743,32 @@ fun LibraryScreen(
                     // --- Local fonts section ---
                     if (localFonts.isNotEmpty()) {
                         item(key = "header_local") {
-                            Text(
-                                stringResource(R.string.library_section_local, localFonts.size),
-                                style = MaterialTheme.typography.labelLarge,
-                                color = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.padding(vertical = 4.dp)
-                            )
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { localExpanded = !localExpanded }
+                                    .padding(vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    stringResource(R.string.library_section_local, localFonts.size),
+                                    style = MaterialTheme.typography.labelLarge,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                Icon(
+                                    imageVector = if (localExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
                         }
-                        itemsIndexed(localFonts, key = { _, item -> "local_${item.uri}" }) { localIdx, item ->
-                            val globalIdx = libraryViewModel.fontList.indexOf(item)
-                            FontCard(context, scope, item, globalIdx, localIdx, onSurfaceColor, libraryViewModel, homeViewModel, navController)
+                        if (localExpanded) {
+                            itemsIndexed(localFonts, key = { _, item -> "local_${item.uri}" }) { localIdx, item ->
+                                val globalIdx = libraryViewModel.fontList.indexOf(item)
+                                FontCard(context, scope, item, globalIdx, localIdx, onSurfaceColor, libraryViewModel, homeViewModel, navController)
+                            }
                         }
                     }
                     // --- Downloaded fonts section ---
@@ -758,17 +777,33 @@ fun LibraryScreen(
                             if (localFonts.isNotEmpty()) {
                                 HorizontalDivider(Modifier.padding(vertical = 8.dp))
                             }
-                            Text(
-                                stringResource(R.string.library_section_downloaded, downloadedFonts.size),
-                                style = MaterialTheme.typography.labelLarge,
-                                color = MaterialTheme.colorScheme.secondary,
-                                modifier = Modifier.padding(vertical = 4.dp)
-                            )
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { downloadedExpanded = !downloadedExpanded }
+                                    .padding(vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    stringResource(R.string.library_section_downloaded, downloadedFonts.size),
+                                    style = MaterialTheme.typography.labelLarge,
+                                    color = MaterialTheme.colorScheme.secondary,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                Icon(
+                                    imageVector = if (downloadedExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.secondary,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
                         }
-                        itemsIndexed(downloadedFonts, key = { _, item -> "dl_${item.uri}" }) { dlIdx, item ->
-                            val globalIdx = libraryViewModel.fontList.indexOf(item)
-                            val previewIdx = localFonts.size + dlIdx
-                            FontCard(context, scope, item, globalIdx, previewIdx, onSurfaceColor, libraryViewModel, homeViewModel, navController)
+                        if (downloadedExpanded) {
+                            itemsIndexed(downloadedFonts, key = { _, item -> "dl_${item.uri}" }) { dlIdx, item ->
+                                val globalIdx = libraryViewModel.fontList.indexOf(item)
+                                val previewIdx = localFonts.size + dlIdx
+                                FontCard(context, scope, item, globalIdx, previewIdx, onSurfaceColor, libraryViewModel, homeViewModel, navController)
+                            }
                         }
                     }
                 }
@@ -1150,6 +1185,51 @@ fun SettingsScreen() {
     Box(Modifier.fillMaxSize().statusBarsPadding()) {
         Column(Modifier.fillMaxSize().padding(24.dp).verticalScroll(rememberScrollState())) {
             Text(androidx.compose.ui.res.stringResource(R.string.title_manage), style = MaterialTheme.typography.headlineLarge, modifier = Modifier.padding(bottom = 16.dp))
+            ElevatedCard(
+                modifier = Modifier.fillMaxWidth(),
+                colors = androidx.compose.material3.CardDefaults.elevatedCardColors(
+                    containerColor = MaterialTheme.colorScheme.errorContainer
+                )
+            ) {
+                Row(
+                    Modifier.padding(16.dp).fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        Icons.Default.Warning,
+                        contentDescription = null,
+                        modifier = Modifier.size(32.dp),
+                        tint = MaterialTheme.colorScheme.error
+                    )
+                    Spacer(Modifier.width(12.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            androidx.compose.ui.res.stringResource(R.string.rescue_title),
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onErrorContainer
+                        )
+                        Text(
+                            androidx.compose.ui.res.stringResource(R.string.rescue_description),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onErrorContainer
+                        )
+                    }
+                    Spacer(Modifier.width(8.dp))
+                    Button(
+                        onClick = {
+                            try { context.startActivity(Intent("com.samsung.settings.FontStyleActivity")) }
+                            catch (_: Exception) { Toast.makeText(context, context.getString(R.string.toast_cannot_open_settings), Toast.LENGTH_SHORT).show() }
+                        },
+                        colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.error,
+                            contentColor = MaterialTheme.colorScheme.onError
+                        )
+                    ) {
+                        Text(androidx.compose.ui.res.stringResource(R.string.rescue_button))
+                    }
+                }
+            }
+            Spacer(Modifier.height(16.dp))
             ElevatedCard(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp)) {
                     Text(androidx.compose.ui.res.stringResource(R.string.section_about), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(bottom = 8.dp))
@@ -1265,7 +1345,7 @@ object FontInstallerUtils {
         val outputApk = File(context.cacheDir, "signed_${System.currentTimeMillis()}.apk")
         var packageNameForCleanup: String? = null
         try {
-            val fontName = displayName.replace(Regex("[^a-zA-Z0-9]"), "")
+            val fontName = com.je.fontsmanager.samsung.util.PinyinUtils.toSafeAsciiName(displayName)
             if (!ttfFile.exists()) {
                 Log.e(TAG, "TTF file does not exist: ${'$'}{ttfFile.absolutePath}")
                 withContext(Dispatchers.Main) { onComplete(false) }
