@@ -85,4 +85,15 @@
     <string name="label_light_variant">细体</string>
     <string name="label_bold_style">粗体</string>
     <string name="label_style">样式</string>
+
+    <string name="nav_library">字体库</string>
+    <string name="library_title">字体库</string>
+    <string name="library_folder_info">已加载 %d 个字体</string>
+    <string name="library_empty">字体文件夹为空</string>
+    <string name="library_no_folder">尚未选择字体文件夹</string>
+    <string name="library_select_folder">选择文件夹</string>
+    <string name="library_scanning">扫描中…</string>
+    <string name="library_sort_name">按名称排序</string>
+    <string name="library_sort_date">按时间排序</string>
+    <string name="library_refresh">刷新</string>
 </resources>

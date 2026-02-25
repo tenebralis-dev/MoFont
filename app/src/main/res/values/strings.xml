@@ -83,4 +83,15 @@
     <string name="label_light_variant">Light</string>
     <string name="label_bold_style">Bold</string>
     <string name="label_style">Style</string>
+
+    <string name="nav_library">Library</string>
+    <string name="library_title">Font Library</string>
+    <string name="library_folder_info">Loaded %d fonts</string>
+    <string name="library_empty">Font folder is empty</string>
+    <string name="library_no_folder">No font folder selected</string>
+    <string name="library_select_folder">Select folder</string>
+    <string name="library_scanning">Scanning…</string>
+    <string name="library_sort_name">Sort by name</string>
+    <string name="library_sort_date">Sort by date</string>
+    <string name="library_refresh">Refresh</string>
 </resources>

@@ -1,6 +1,7 @@
 package com.je.fontsmanager.samsung.ui.navigation
 
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -15,6 +16,12 @@ sealed class Screen(
         title = "Home",
         icon = Icons.Default.Home
     )
+
+    data object Library : Screen(
+        route = "library",
+        title = "Library",
+        icon = Icons.AutoMirrored.Filled.List
+    )
     
     data object Settings : Screen(
         route = "settings",
@@ -25,5 +32,6 @@ sealed class Screen(
 
 val bottomNavItems = listOf(
     Screen.Home,
+    Screen.Library,
     Screen.Settings
 )

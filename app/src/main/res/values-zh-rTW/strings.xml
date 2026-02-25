@@ -82,4 +82,15 @@
     <string name="label_light_variant">細體</string>
     <string name="label_bold_style">粗體</string>
     <string name="label_style">樣式</string>
+
+    <string name="nav_library">字型庫</string>
+    <string name="library_title">字型庫</string>
+    <string name="library_folder_info">已載入 %d 個字型</string>
+    <string name="library_empty">字型資料夾為空</string>
+    <string name="library_no_folder">尚未選擇字型資料夾</string>
+    <string name="library_select_folder">選擇資料夾</string>
+    <string name="library_scanning">掃描中…</string>
+    <string name="library_sort_name">按名稱排序</string>
+    <string name="library_sort_date">按時間排序</string>
+    <string name="library_refresh">重新整理</string>
 </resources>
