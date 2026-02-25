@@ -33,6 +33,13 @@ data class LocalFontItem(
 
 enum class SortOrder { NAME, DATE }
 
+enum class BatchStatus { Pending, Building, Installing, Success, Failed, Skipped }
+
+data class BatchResult(
+    val fileName: String,
+    val status: BatchStatus
+)
+
 class LibraryViewModel : ViewModel() {
 
     var fontList by mutableStateOf<List<LocalFontItem>>(emptyList())
@@ -48,6 +55,22 @@ class LibraryViewModel : ViewModel() {
     var isDownloading by mutableStateOf(false)
         private set
     var downloadError by mutableStateOf<String?>(null)
+        private set
+
+    // Batch selection & install state
+    var isSelectionMode by mutableStateOf(false)
+        private set
+    var selectedUris by mutableStateOf<Set<Uri>>(emptySet())
+        private set
+    var isBatchInstalling by mutableStateOf(false)
+        private set
+    var batchProgress by mutableStateOf(0)
+        private set
+    var batchTotal by mutableStateOf(0)
+        private set
+    var batchResults by mutableStateOf<List<BatchResult>>(emptyList())
+        private set
+    var batchCancelled by mutableStateOf(false)
         private set
 
     companion object {
@@ -101,6 +124,72 @@ class LibraryViewModel : ViewModel() {
     }
 
     fun clearDownloadError() { downloadError = null }
+
+    // --- Batch selection methods ---
+
+    fun enterSelectionMode() {
+        isSelectionMode = true
+        selectedUris = emptySet()
+    }
+
+    fun exitSelectionMode() {
+        isSelectionMode = false
+        selectedUris = emptySet()
+    }
+
+    fun toggleSelection(uri: Uri) {
+        selectedUris = if (uri in selectedUris) selectedUris - uri else selectedUris + uri
+    }
+
+    fun selectAll() {
+        selectedUris = fontList.map { it.uri }.toSet()
+    }
+
+    fun deselectAll() {
+        selectedUris = emptySet()
+    }
+
+    fun getSelectedItems(): List<LocalFontItem> {
+        return fontList.filter { it.uri in selectedUris }
+    }
+
+    fun updateBatchResult(index: Int, status: BatchStatus) {
+        if (index in batchResults.indices) {
+            batchResults = batchResults.toMutableList().also {
+                it[index] = it[index].copy(status = status)
+            }
+        }
+    }
+
+    fun startBatchInstall(items: List<LocalFontItem>) {
+        isBatchInstalling = true
+        batchCancelled = false
+        batchProgress = 0
+        batchTotal = items.size
+        batchResults = items.map { BatchResult(it.fileName, BatchStatus.Pending) }
+    }
+
+    fun advanceBatchProgress() {
+        batchProgress++
+    }
+
+    fun cancelBatchInstall() {
+        batchCancelled = true
+    }
+
+    fun finishBatchInstall() {
+        isBatchInstalling = false
+        batchCancelled = false
+    }
+
+    fun resetBatchState() {
+        isBatchInstalling = false
+        batchCancelled = false
+        batchProgress = 0
+        batchTotal = 0
+        batchResults = emptyList()
+        exitSelectionMode()
+    }
 
     fun scanFonts(context: Context) {
         val uri = folderUri ?: return

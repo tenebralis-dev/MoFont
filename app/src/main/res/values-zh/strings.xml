@@ -114,4 +114,24 @@
     <string name="download_success">字体下载成功</string>
     <string name="download_error">下载失败：%s</string>
     <string name="download_error_exists">该字体已存在</string>
+
+    <string name="batch_select">选择</string>
+    <string name="batch_exit_select">退出选择</string>
+    <string name="batch_install_selected">安装 (%d)</string>
+    <string name="batch_select_all">全选</string>
+    <string name="batch_deselect_all">取消全选</string>
+    <string name="batch_installing_title">批量安装</string>
+    <string name="batch_status_pending">等待中</string>
+    <string name="batch_status_building">构建中…</string>
+    <string name="batch_status_installing">安装中…</string>
+    <string name="batch_status_success">成功</string>
+    <string name="batch_status_failed">失败</string>
+    <string name="batch_status_skipped">已跳过</string>
+    <string name="batch_progress">%1$d / %2$d</string>
+    <string name="batch_complete_summary">成功 %1$d 个，失败 %2$d 个，跳过 %3$d 个</string>
+    <string name="batch_cancel">取消</string>
+    <string name="batch_done">完成</string>
+    <string name="batch_confirm_title">确认批量安装</string>
+    <string name="batch_confirm_message">安装 %d 个字体？每个字体需要手动确认。</string>
+    <string name="batch_confirm_message_shizuku">通过 Shizuku 自动安装 %d 个字体？</string>
 </resources>

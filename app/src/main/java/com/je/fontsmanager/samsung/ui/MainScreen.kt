@@ -559,6 +559,8 @@ fun LibraryScreen(
     val onSurfaceColor = MaterialTheme.colorScheme.onSurface.toArgb()
     var showDownloadDialog by remember { mutableStateOf(false) }
     var downloadUrl by remember { mutableStateOf("") }
+    var showBatchConfirm by remember { mutableStateOf(false) }
+    var showBatchProgress by remember { mutableStateOf(false) }
 
     // Restore folder URI on first composition
     LaunchedEffect(Unit) {
@@ -576,6 +578,46 @@ fun LibraryScreen(
     val folderPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
         uri?.let {
             libraryViewModel.setFolderUri(context, it)
+        }
+    }
+
+    // --- Install launcher for batch (non-Shizuku) installs ---
+    var batchPendingPackage by remember { mutableStateOf<String?>(null) }
+    var batchInstallContinuation by remember { mutableStateOf<(() -> Unit)?>(null) }
+
+    val batchInstallLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        if (result.resultCode == Activity.RESULT_CANCELED) {
+            // User cancelled this individual install — treat as failed, continue
+            batchInstallContinuation?.invoke()
+            batchInstallContinuation = null
+        }
+        // If not cancelled, the BroadcastReceiver for ACTION_PACKAGE_ADDED will handle it
+    }
+
+    // BroadcastReceiver for batch install: listens for package add events
+    DisposableEffect(batchPendingPackage) {
+        val pkg = batchPendingPackage
+        if (pkg != null) {
+            val receiver = object : BroadcastReceiver() {
+                override fun onReceive(ctx: Context?, intent: Intent?) {
+                    if (intent?.action == Intent.ACTION_PACKAGE_ADDED) {
+                        val added = intent.data?.schemeSpecificPart
+                        if (added == pkg) {
+                            batchInstallContinuation?.invoke()
+                            batchInstallContinuation = null
+                            batchPendingPackage = null
+                            try { context.unregisterReceiver(this) } catch (_: Exception) {}
+                        }
+                    }
+                }
+            }
+            val filter = IntentFilter(Intent.ACTION_PACKAGE_ADDED).apply { addDataScheme("package") }
+            try { context.registerReceiver(receiver, filter) } catch (_: Exception) {}
+            onDispose {
+                try { context.unregisterReceiver(receiver) } catch (_: Exception) {}
+            }
+        } else {
+            onDispose {}
         }
     }
 
@@ -632,12 +674,178 @@ fun LibraryScreen(
         )
     }
 
+    // --- Batch confirm dialog ---
+    if (showBatchConfirm) {
+        val selectedCount = libraryViewModel.selectedUris.size
+        val useShizuku = ShizukuAPI.shouldUseShizuku(context)
+        AlertDialog(
+            onDismissRequest = { showBatchConfirm = false },
+            title = { Text(stringResource(R.string.batch_confirm_title)) },
+            text = {
+                Text(
+                    if (useShizuku) stringResource(R.string.batch_confirm_message_shizuku, selectedCount)
+                    else stringResource(R.string.batch_confirm_message, selectedCount)
+                )
+            },
+            confirmButton = {
+                Button(onClick = {
+                    showBatchConfirm = false
+                    showBatchProgress = true
+                    val selectedItems = libraryViewModel.getSelectedItems()
+                    libraryViewModel.startBatchInstall(selectedItems)
+                    scope.launch {
+                        FontInstallerUtils.batchBuildAndInstall(
+                            context = context,
+                            items = selectedItems,
+                            libraryViewModel = libraryViewModel,
+                            useShizuku = useShizuku,
+                            installLauncher = batchInstallLauncher,
+                            onSetPendingPackage = { pkg -> batchPendingPackage = pkg },
+                            onSetContinuation = { cont -> batchInstallContinuation = cont }
+                        )
+                        libraryViewModel.finishBatchInstall()
+                    }
+                }) { Text(stringResource(R.string.button_install)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showBatchConfirm = false }) {
+                    Text(stringResource(R.string.button_cancel))
+                }
+            }
+        )
+    }
+
+    // --- Batch install progress dialog ---
+    if (showBatchProgress) {
+        val results = libraryViewModel.batchResults
+        val progress = libraryViewModel.batchProgress
+        val total = libraryViewModel.batchTotal
+        val isComplete = !libraryViewModel.isBatchInstalling
+        val successes = results.count { it.status == BatchStatus.Success }
+        val failures = results.count { it.status == BatchStatus.Failed }
+        val skipped = results.count { it.status == BatchStatus.Skipped }
+
+        AlertDialog(
+            onDismissRequest = { if (isComplete) { showBatchProgress = false; libraryViewModel.resetBatchState() } },
+            title = { Text(stringResource(R.string.batch_installing_title)) },
+            text = {
+                Column {
+                    if (total > 0) {
+                        LinearProgressIndicator(
+                            progress = { progress.toFloat() / total.toFloat() },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            stringResource(R.string.batch_progress, progress, total),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Spacer(Modifier.height(12.dp))
+                    // Show each item's status
+                    Column(
+                        modifier = Modifier
+                            .heightIn(max = 300.dp)
+                            .verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        results.forEach { result ->
+                            Row(
+                                Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                val (icon, color) = when (result.status) {
+                                    BatchStatus.Pending -> Icons.Default.MoreVert to MaterialTheme.colorScheme.onSurfaceVariant
+                                    BatchStatus.Building -> Icons.Default.Build to MaterialTheme.colorScheme.primary
+                                    BatchStatus.Installing -> Icons.Default.ArrowForward to MaterialTheme.colorScheme.primary
+                                    BatchStatus.Success -> Icons.Default.CheckCircle to MaterialTheme.colorScheme.primary
+                                    BatchStatus.Failed -> Icons.Default.Error to MaterialTheme.colorScheme.error
+                                    BatchStatus.Skipped -> Icons.Default.Clear to MaterialTheme.colorScheme.onSurfaceVariant
+                                }
+                                Icon(icon, contentDescription = null, modifier = Modifier.size(18.dp), tint = color)
+                                Spacer(Modifier.width(8.dp))
+                                Text(
+                                    result.fileName,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    modifier = Modifier.weight(1f),
+                                    maxLines = 1,
+                                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                                )
+                                Text(
+                                    when (result.status) {
+                                        BatchStatus.Pending -> stringResource(R.string.batch_status_pending)
+                                        BatchStatus.Building -> stringResource(R.string.batch_status_building)
+                                        BatchStatus.Installing -> stringResource(R.string.batch_status_installing)
+                                        BatchStatus.Success -> stringResource(R.string.batch_status_success)
+                                        BatchStatus.Failed -> stringResource(R.string.batch_status_failed)
+                                        BatchStatus.Skipped -> stringResource(R.string.batch_status_skipped)
+                                    },
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = color
+                                )
+                            }
+                        }
+                    }
+                    if (isComplete) {
+                        Spacer(Modifier.height(12.dp))
+                        Text(
+                            stringResource(R.string.batch_complete_summary, successes, failures, skipped),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                if (isComplete) {
+                    Button(onClick = { showBatchProgress = false; libraryViewModel.resetBatchState() }) {
+                        Text(stringResource(R.string.batch_done))
+                    }
+                } else {
+                    TextButton(onClick = { libraryViewModel.cancelBatchInstall() }) {
+                        Text(stringResource(R.string.batch_cancel))
+                    }
+                }
+            }
+        )
+    }
+
+    val isSelectionMode = libraryViewModel.isSelectionMode
+    val selectedCount = libraryViewModel.selectedUris.size
+
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(R.string.library_title)) },
+                title = {
+                    if (isSelectionMode) {
+                        Text(stringResource(R.string.batch_install_selected, selectedCount))
+                    } else {
+                        Text(stringResource(R.string.library_title))
+                    }
+                },
+                navigationIcon = {
+                    if (isSelectionMode) {
+                        IconButton(onClick = { libraryViewModel.exitSelectionMode() }) {
+                            Icon(Icons.Default.Close, contentDescription = stringResource(R.string.batch_exit_select))
+                        }
+                    }
+                },
                 actions = {
-                    if (folderUri != null) {
+                    if (isSelectionMode) {
+                        // Select all / deselect all in selection mode
+                        val allSelected = libraryViewModel.selectedUris.size == libraryViewModel.fontList.size && libraryViewModel.fontList.isNotEmpty()
+                        IconButton(onClick = { if (allSelected) libraryViewModel.deselectAll() else libraryViewModel.selectAll() }) {
+                            Icon(
+                                if (allSelected) Icons.Default.Clear else Icons.Default.Done,
+                                contentDescription = if (allSelected) stringResource(R.string.batch_deselect_all) else stringResource(R.string.batch_select_all)
+                            )
+                        }
+                    } else if (folderUri != null) {
+                        // Normal mode actions
+                        IconButton(onClick = { libraryViewModel.enterSelectionMode() }) {
+                            Icon(Icons.Default.List, contentDescription = stringResource(R.string.batch_select))
+                        }
                         var showSortMenu by remember { mutableStateOf(false) }
                         Box {
                             IconButton(onClick = { showSortMenu = true }) {
@@ -674,11 +882,35 @@ fun LibraryScreen(
                             Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.library_refresh))
                         }
                     }
-                    IconButton(onClick = { folderPicker.launch(null) }) {
-                        Icon(Icons.Default.CreateNewFolder, contentDescription = stringResource(R.string.library_select_folder))
+                    if (!isSelectionMode) {
+                        IconButton(onClick = { folderPicker.launch(null) }) {
+                            Icon(Icons.Default.CreateNewFolder, contentDescription = stringResource(R.string.library_select_folder))
+                        }
                     }
                 }
             )
+        },
+        bottomBar = {
+            if (isSelectionMode && selectedCount > 0) {
+                Surface(
+                    tonalElevation = 3.dp,
+                    shadowElevation = 8.dp,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.End
+                    ) {
+                        Button(
+                            onClick = { showBatchConfirm = true }
+                        ) {
+                            Icon(Icons.Default.ArrowForward, null, Modifier.size(18.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text(stringResource(R.string.batch_install_selected, selectedCount))
+                        }
+                    }
+                }
+            }
         }
     ) { innerPadding ->
         if (folderUri == null) {
@@ -824,35 +1056,53 @@ private fun FontCard(
     homeViewModel: HomeViewModel,
     navController: androidx.navigation.NavController
 ) {
+    val isSelectionMode = libraryViewModel.isSelectionMode
+    val isSelected = item.uri in libraryViewModel.selectedUris
     LaunchedEffect(item.uri) { libraryViewModel.loadTypeface(context, globalIndex) }
     ElevatedCard(
         modifier = Modifier.fillMaxWidth().clickable {
-            scope.launch {
-                val cachedFile = libraryViewModel.prepareFontForPreview(context, item)
-                if (cachedFile != null) {
-                    homeViewModel.setSelectedFontFile(cachedFile, item.fileName)
-                    homeViewModel.updateDisplayName(item.fileName.removeSuffix(".ttf"))
-                    navController.navigate(Screen.FontPreview.route)
-                } else {
-                    Toast.makeText(context, context.getString(R.string.error_font_preview), Toast.LENGTH_SHORT).show()
+            if (isSelectionMode) {
+                libraryViewModel.toggleSelection(item.uri)
+            } else {
+                scope.launch {
+                    val cachedFile = libraryViewModel.prepareFontForPreview(context, item)
+                    if (cachedFile != null) {
+                        homeViewModel.setSelectedFontFile(cachedFile, item.fileName)
+                        homeViewModel.updateDisplayName(item.fileName.removeSuffix(".ttf"))
+                        navController.navigate(Screen.FontPreview.route)
+                    } else {
+                        Toast.makeText(context, context.getString(R.string.error_font_preview), Toast.LENGTH_SHORT).show()
+                    }
                 }
             }
-        }
+        },
+        colors = if (isSelected) androidx.compose.material3.CardDefaults.elevatedCardColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer
+        ) else androidx.compose.material3.CardDefaults.elevatedCardColors()
     ) {
-        Column(Modifier.padding(16.dp)) {
-            Text(item.fileName, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
-            Spacer(Modifier.height(8.dp))
-            if (item.isLoading) {
-                LinearProgressIndicator(Modifier.fillMaxWidth())
-            } else if (item.typeface != null) {
-                val previewText = getLibraryPreviewText(previewIndex)
-                AndroidView(
-                    factory = { ctx -> makeSampleTextView(ctx, 18f, onSurfaceColor, previewText) },
-                    update = { tv -> tv.typeface = item.typeface; tv.text = previewText; tv.setTextColor(onSurfaceColor) },
-                    modifier = Modifier.fillMaxWidth()
+        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            if (isSelectionMode) {
+                Checkbox(
+                    checked = isSelected,
+                    onCheckedChange = { libraryViewModel.toggleSelection(item.uri) },
+                    modifier = Modifier.padding(end = 12.dp)
                 )
-            } else {
-                Text(getLibraryPreviewText(previewIndex), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            Column(Modifier.weight(1f)) {
+                Text(item.fileName, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
+                Spacer(Modifier.height(8.dp))
+                if (item.isLoading) {
+                    LinearProgressIndicator(Modifier.fillMaxWidth())
+                } else if (item.typeface != null) {
+                    val previewText = getLibraryPreviewText(previewIndex)
+                    AndroidView(
+                        factory = { ctx -> makeSampleTextView(ctx, 18f, onSurfaceColor, previewText) },
+                        update = { tv -> tv.typeface = item.typeface; tv.text = previewText; tv.setTextColor(onSurfaceColor) },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                } else {
+                    Text(getLibraryPreviewText(previewIndex), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
             }
         }
     }
@@ -1392,6 +1642,111 @@ object FontInstallerUtils {
         true
     } catch (e: PackageManager.NameNotFoundException) {
         false
+    }
+
+    /**
+     * Batch build and install fonts sequentially.
+     * With Shizuku: silent install via `pm install`.
+     * Without Shizuku: sequential system install dialog, waiting for ACTION_PACKAGE_ADDED.
+     */
+    suspend fun batchBuildAndInstall(
+        context: Context,
+        items: List<LocalFontItem>,
+        libraryViewModel: LibraryViewModel,
+        useShizuku: Boolean,
+        installLauncher: androidx.activity.result.ActivityResultLauncher<Intent>,
+        onSetPendingPackage: (String?) -> Unit,
+        onSetContinuation: ((() -> Unit)?) -> Unit
+    ) = withContext(Dispatchers.IO) {
+        for ((index, item) in items.withIndex()) {
+            if (libraryViewModel.batchCancelled) {
+                // Mark remaining items as skipped
+                for (i in index until items.size) {
+                    libraryViewModel.updateBatchResult(i, BatchStatus.Skipped)
+                }
+                break
+            }
+
+            // Prepare the font file from SAF URI
+            val displayName = item.fileName.removeSuffix(".ttf")
+            val fontName = com.je.fontsmanager.samsung.util.PinyinUtils.toSafeAsciiName(displayName)
+            val packageName = "$FONT_PACKAGE_PREFIX.$fontName"
+
+            // Check if already installed
+            if (isAppInstalled(context, packageName)) {
+                libraryViewModel.updateBatchResult(index, BatchStatus.Skipped)
+                libraryViewModel.advanceBatchProgress()
+                continue
+            }
+
+            // Copy from SAF to cache
+            val cachedFile = try {
+                val baseName = item.fileName.removeSuffix(".ttf").replace(Regex("[^a-zA-Z0-9]"), "")
+                val cacheFile = File(context.cacheDir, "batch_${baseName}_${System.currentTimeMillis()}.ttf")
+                context.contentResolver.openInputStream(item.uri)?.use { input ->
+                    java.io.FileOutputStream(cacheFile).use { output -> input.copyTo(output) }
+                }
+                if (cacheFile.exists() && cacheFile.length() > 0L) cacheFile else null
+            } catch (_: Exception) { null }
+
+            if (cachedFile == null) {
+                libraryViewModel.updateBatchResult(index, BatchStatus.Failed)
+                libraryViewModel.advanceBatchProgress()
+                continue
+            }
+
+            // Build APK
+            libraryViewModel.updateBatchResult(index, BatchStatus.Building)
+            val outputApk = File(context.cacheDir, "batch_signed_${System.currentTimeMillis()}.apk")
+            val config = FontBuilder.FontConfig(
+                displayName = displayName,
+                fontName = fontName,
+                ttfFile = cachedFile
+            )
+            val buildSuccess = try {
+                FontBuilder.buildAndSignFontApk(context, config, outputApk)
+            } catch (_: Exception) { false }
+
+            if (!buildSuccess) {
+                libraryViewModel.updateBatchResult(index, BatchStatus.Failed)
+                libraryViewModel.advanceBatchProgress()
+                try { cachedFile.delete() } catch (_: Exception) {}
+                try { outputApk.delete() } catch (_: Exception) {}
+                continue
+            }
+
+            // Install APK
+            libraryViewModel.updateBatchResult(index, BatchStatus.Installing)
+
+            if (useShizuku) {
+                // Shizuku silent install
+                val installSuccess = try {
+                    ShizukuAPI.installApk(outputApk) { /* fallback not used */ }
+                } catch (_: Exception) { false }
+                libraryViewModel.updateBatchResult(index, if (installSuccess) BatchStatus.Success else BatchStatus.Failed)
+                libraryViewModel.advanceBatchProgress()
+                try { cachedFile.delete() } catch (_: Exception) {}
+                try { outputApk.delete() } catch (_: Exception) {}
+            } else {
+                // System install dialog — wait for user confirmation via broadcast
+                val installComplete = kotlinx.coroutines.suspendCancellableCoroutine { continuation ->
+                    android.os.Handler(android.os.Looper.getMainLooper()).post {
+                        onSetPendingPackage(config.packageName)
+                        onSetContinuation {
+                            try { continuation.resume(true) {} } catch (_: Exception) {}
+                        }
+                        installApk(context, outputApk, installLauncher)
+                    }
+                }
+                // Check if actually installed
+                val installed = isAppInstalled(context, config.packageName)
+                libraryViewModel.updateBatchResult(index, if (installed) BatchStatus.Success else BatchStatus.Failed)
+                libraryViewModel.advanceBatchProgress()
+                onSetPendingPackage(null)
+                try { cachedFile.delete() } catch (_: Exception) {}
+                try { outputApk.delete() } catch (_: Exception) {}
+            }
+        }
     }
 
     // under no circumstances should this function be altered or use any other API
