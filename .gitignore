@@ -10,3 +10,4 @@ local.properties
 .idea/
 app/src/main/assets/template.apk
 /app/build
+prd/

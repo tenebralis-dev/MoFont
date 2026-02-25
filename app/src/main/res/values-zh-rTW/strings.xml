@@ -1,4 +1,3 @@
-<!-- machine translated -->
 
 <resources>
     <string name="app_name">墨字</string>
@@ -65,6 +64,7 @@
     <string name="sample_text_simple_1">春眠不覺曉,處處聞啼鳥</string>
     <string name="sample_text_simple_2">我理解能力掉線，只能亂敲些詭異文字來假裝自己很有范兒。</string>
     <string name="sample_text_simple_3">天地玄黃宇宙洪荒日月盈昃辰宿列張</string>
+    <string name="sample_text_simple_4">天生我材必有用，千金散盡還復來</string>
     <!-- <string name="sample_text_complex">天地玄黃宇宙洪荒日月盈昃辰宿列張\n\n1234567890\n\n!@#$%……&amp;*()_+~</string> -->
     <string name="sample_alphabet">aoei uübpmf dtnlgkhjqx zhchshr zcsyw</string>
 
@@ -78,5 +78,8 @@
     <string name="label_italic_variant">斜體</string>
     <string name="label_bold_italic_variant">粗斜體</string>
     <string name="label_medium_variant">中等</string>
+    <string name="label_medium_italic_variant">中等斜體</string>
     <string name="label_light_variant">細體</string>
+    <string name="label_bold_style">粗體</string>
+    <string name="label_style">樣式</string>
 </resources>

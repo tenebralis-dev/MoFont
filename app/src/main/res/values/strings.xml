@@ -77,7 +77,10 @@
 
     <string name="label_regular_variant">Regular</string>
     <string name="label_italic_variant">Italic</string>
-    <string name="label_bold_italic_variant">Bold italic</string>
+    <string name="label_bold_italic_variant">Bold Italic</string>
     <string name="label_medium_variant">Medium</string>
+    <string name="label_medium_italic_variant">Medium Italic</string>
     <string name="label_light_variant">Light</string>
+    <string name="label_bold_style">Bold</string>
+    <string name="label_style">Style</string>
 </resources>

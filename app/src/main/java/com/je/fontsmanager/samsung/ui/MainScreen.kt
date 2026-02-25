@@ -68,15 +68,12 @@ sealed class Screen(val route: String, val titleRes: Int) {
 
 private fun getRandomSimpleText(context: Context): String {
     val simpleTexts = mutableListOf<String>()
-    val locale = context.resources.configuration.locales.get(0)
     val resIds = mutableListOf(
         R.string.sample_text_simple_1,
         R.string.sample_text_simple_2,
         R.string.sample_text_simple_3,
+        R.string.sample_text_simple_4,
     )
-    if (locale.language == "en") {
-        resIds.add(R.string.sample_text_simple_4)
-    }
     resIds.forEach { resId ->
         try {
             val text = context.getString(resId)
@@ -166,6 +163,16 @@ fun HomeScreen(navController: androidx.navigation.NavController, sharedState: Ho
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose {
             lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+
+    val installAction = remember { mutableStateOf<(() -> Unit)?>(null) }
+
+    val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O && context.packageManager.canRequestPackageInstalls()) {
+            installAction.value?.invoke()
+        } else {
+            Toast.makeText(context, context.getString(R.string.toast_permission_denied), Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -276,7 +283,7 @@ fun HomeScreen(navController: androidx.navigation.NavController, sharedState: Ho
         }
     }
 
-    fun performInstall() {
+    installAction.value = {
         val pkgName = "com.monotype.android.font.${displayName.replace(Regex("[^a-zA-Z0-9]"), "")}"
         pendingInstallPackage = pkgName; awaitingInstallResult = true
         scope.launch {
@@ -297,6 +304,21 @@ fun HomeScreen(navController: androidx.navigation.NavController, sharedState: Ho
                 onRegisterPending = { _, file -> pendingApkFile = file }
             )
         }
+    }
+
+    fun performInstall() {
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O && !context.packageManager.canRequestPackageInstalls() && !ShizukuAPI.isUsable()) {
+            try {
+                val intent = Intent(android.provider.Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES).apply {
+                    data = android.net.Uri.parse("package:${context.packageName}")
+                }
+                permissionLauncher.launch(intent)
+            } catch (e: Exception) {
+                Toast.makeText(context, context.getString(R.string.toast_cannot_open_settings), Toast.LENGTH_SHORT).show()
+            }
+            return
+        }
+        installAction.value?.invoke()
     }
 
     if (showNameDialog) {
@@ -597,7 +619,7 @@ fun FontPreviewScreen(navController: androidx.navigation.NavController, sharedSt
                 Spacer(Modifier.height(16.dp))
 
                 // style selector (segmented buttons) - two rows
-                Text("Style", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
+                Text(stringResource(R.string.label_style), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
                 Spacer(Modifier.height(8.dp))
                 val regularRow = listOf(PreviewStyle.Regular, PreviewStyle.Medium, PreviewStyle.Bold) // regular styles
                 val italicRow = listOf(PreviewStyle.Italic, PreviewStyle.MediumItalic, PreviewStyle.BoldItalic) // italicized styles
@@ -611,7 +633,7 @@ fun FontPreviewScreen(navController: androidx.navigation.NavController, sharedSt
                             modifier = Modifier.weight(1f).height(40.dp)
                         ) {
                             Text(
-                                style.label,
+                                stringResource(style.labelRes),
                                 maxLines = 1,
                                 softWrap = false,
                                 overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
@@ -629,7 +651,7 @@ fun FontPreviewScreen(navController: androidx.navigation.NavController, sharedSt
                             modifier = Modifier.weight(1f).height(40.dp)
                         ) {
                             Text(
-                                style.label,
+                                stringResource(style.labelRes),
                                 maxLines = 1,
                                 softWrap = false,
                                 overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
@@ -643,13 +665,7 @@ fun FontPreviewScreen(navController: androidx.navigation.NavController, sharedSt
 
                 ElevatedCard(Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(16.dp)) {
-                        val header = when (selectedStyle) {
-                            PreviewStyle.Regular -> stringResource(R.string.label_regular_variant)
-                            PreviewStyle.Italic -> stringResource(R.string.label_italic_variant)
-                            PreviewStyle.Medium -> stringResource(R.string.label_medium_variant)
-                            PreviewStyle.MediumItalic -> stringResource(R.string.label_medium_variant) + " " + androidx.compose.ui.res.stringResource(R.string.label_italic_variant)
-                            PreviewStyle.Bold, PreviewStyle.BoldItalic -> stringResource(R.string.preview_bold_variant)
-                        }
+                        val header = stringResource(selectedStyle.labelRes)
                         Text(
                             header,
                             style = MaterialTheme.typography.labelMedium,
