@@ -7,13 +7,13 @@
 <table align="center">
 <tr>
 <td align="center">
-<img src="fastlane/metadata/android/en-US/images/phoneScreenshots/01.png" width="240">
+<img src="fastlane/metadata/android/en-US/images/phoneScreenshots/01.jpg" width="240">
 </td>
 <td align="center">
-<img src="fastlane/metadata/android/en-US/images/phoneScreenshots/02.png" width="240">
+<img src="fastlane/metadata/android/en-US/images/phoneScreenshots/02.jpg" width="240">
 </td>
 <td align="center">
-<img src="fastlane/metadata/android/en-US/images/phoneScreenshots/03.png" width="240">
+<img src="fastlane/metadata/android/en-US/images/phoneScreenshots/03.jpg" width="240">
 </td>
 </tr>
 </table>

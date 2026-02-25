@@ -4,13 +4,11 @@ plugins {
 
 android {
     namespace = "PLACEHOLDER_FONT_DISPLAY_NAME_LONG_STRING_HERE_SPACE_SPACE_SPACE"
-    compileSdk {
-        version = release(36)
-    }
+    compileSdk = 36
     defaultConfig {
         applicationId = "com.monotype.android.font.PLACEHOLDER_FONT_NAME_HI_I_SUCK_AT_MAKING_APPS_SPACE_SPACE"
-        minSdk = 30
-        targetSdk = 36
+        minSdk = 26
+        targetSdk = 35
         versionCode = 1
         versionName = "1.0"
     }

@@ -6,13 +6,11 @@ plugins {
 
 android {
     namespace = "com.je.fontsmanager.samsung"
-    compileSdk {
-        version = release(36)
-    }
+    compileSdk = 36
     defaultConfig {
         applicationId = "com.je.fontsmanager.samsung"
-        minSdk = 36
-        targetSdk = 36
+        minSdk = 26
+        targetSdk = 35
         versionCode = 160
         versionName = "1.6.0-beta"
     }
