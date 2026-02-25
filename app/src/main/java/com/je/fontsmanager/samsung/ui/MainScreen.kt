@@ -556,6 +556,8 @@ fun LibraryScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val onSurfaceColor = MaterialTheme.colorScheme.onSurface.toArgb()
+    var showDownloadDialog by remember { mutableStateOf(false) }
+    var downloadUrl by remember { mutableStateOf("") }
 
     // Restore folder URI on first composition
     LaunchedEffect(Unit) {
@@ -576,39 +578,111 @@ fun LibraryScreen(
         }
     }
 
+    // Download dialog
+    if (showDownloadDialog) {
+        AlertDialog(
+            onDismissRequest = { if (!libraryViewModel.isDownloading) { showDownloadDialog = false; downloadUrl = "" } },
+            title = { Text(stringResource(R.string.download_title)) },
+            text = {
+                Column {
+                    OutlinedTextField(
+                        value = downloadUrl,
+                        onValueChange = { downloadUrl = it; libraryViewModel.clearDownloadError() },
+                        label = { Text(stringResource(R.string.download_url_hint)) },
+                        singleLine = true,
+                        enabled = !libraryViewModel.isDownloading,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    if (libraryViewModel.isDownloading) {
+                        Spacer(Modifier.height(12.dp))
+                        LinearProgressIndicator(Modifier.fillMaxWidth())
+                        Spacer(Modifier.height(4.dp))
+                        Text(stringResource(R.string.download_progress), style = MaterialTheme.typography.bodySmall)
+                    }
+                    libraryViewModel.downloadError?.let { error ->
+                        Spacer(Modifier.height(8.dp))
+                        val errorText = if (error == "ALREADY_EXISTS") stringResource(R.string.download_error_exists)
+                                        else stringResource(R.string.download_error, error)
+                        Text(errorText, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        libraryViewModel.downloadFont(context, downloadUrl.trim()) { success ->
+                            if (success) {
+                                showDownloadDialog = false
+                                downloadUrl = ""
+                                Toast.makeText(context, context.getString(R.string.download_success), Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    },
+                    enabled = downloadUrl.isNotBlank() && !libraryViewModel.isDownloading
+                ) { Text(stringResource(R.string.download_start)) }
+            },
+            dismissButton = {
+                if (!libraryViewModel.isDownloading) {
+                    TextButton(onClick = { showDownloadDialog = false; downloadUrl = ""; libraryViewModel.clearDownloadError() }) {
+                        Text(stringResource(R.string.button_cancel))
+                    }
+                }
+            }
+        )
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text(stringResource(R.string.library_title)) },
                 actions = {
                     if (folderUri != null) {
-                        IconButton(onClick = { libraryViewModel.toggleSortOrder() }) {
-                            Icon(
-                                Icons.Default.Menu,
-                                contentDescription = stringResource(
-                                    if (libraryViewModel.sortOrder == SortOrder.NAME) R.string.library_sort_date
-                                    else R.string.library_sort_name
+                        var showSortMenu by remember { mutableStateOf(false) }
+                        Box {
+                            IconButton(onClick = { showSortMenu = true }) {
+                                Icon(Icons.Default.SortByAlpha, contentDescription = stringResource(R.string.library_sort_name))
+                            }
+                            DropdownMenu(showSortMenu, { showSortMenu = false }) {
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.library_sort_name_asc)) },
+                                    onClick = { showSortMenu = false; libraryViewModel.setSortOrder(SortOrder.NAME, true) },
+                                    leadingIcon = { if (libraryViewModel.sortOrder == SortOrder.NAME && libraryViewModel.isAscending) Icon(Icons.Default.Check, null) },
                                 )
-                            )
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.library_sort_name_desc)) },
+                                    onClick = { showSortMenu = false; libraryViewModel.setSortOrder(SortOrder.NAME, false) },
+                                    leadingIcon = { if (libraryViewModel.sortOrder == SortOrder.NAME && !libraryViewModel.isAscending) Icon(Icons.Default.Check, null) },
+                                )
+                                HorizontalDivider()
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.library_sort_date_asc)) },
+                                    onClick = { showSortMenu = false; libraryViewModel.setSortOrder(SortOrder.DATE, true) },
+                                    leadingIcon = { if (libraryViewModel.sortOrder == SortOrder.DATE && libraryViewModel.isAscending) Icon(Icons.Default.Check, null) },
+                                )
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.library_sort_date_desc)) },
+                                    onClick = { showSortMenu = false; libraryViewModel.setSortOrder(SortOrder.DATE, false) },
+                                    leadingIcon = { if (libraryViewModel.sortOrder == SortOrder.DATE && !libraryViewModel.isAscending) Icon(Icons.Default.Check, null) },
+                                )
+                            }
+                        }
+                        IconButton(onClick = { showDownloadDialog = true }) {
+                            Icon(Icons.Default.FileDownload, contentDescription = stringResource(R.string.download_title))
                         }
                         IconButton(onClick = { libraryViewModel.scanFonts(context) }) {
                             Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.library_refresh))
                         }
                     }
                     IconButton(onClick = { folderPicker.launch(null) }) {
-                        Icon(Icons.Default.Add, contentDescription = stringResource(R.string.library_select_folder))
+                        Icon(Icons.Default.CreateNewFolder, contentDescription = stringResource(R.string.library_select_folder))
                     }
                 }
             )
         }
     ) { innerPadding ->
         if (folderUri == null) {
-            // No folder authorized yet
             Box(
-                Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding)
-                    .padding(24.dp),
+                Modifier.fillMaxSize().padding(innerPadding).padding(24.dp),
                 contentAlignment = Alignment.Center
             ) {
                 ElevatedCard(Modifier.fillMaxWidth()) {
@@ -616,21 +690,12 @@ fun LibraryScreen(
                         Modifier.padding(24.dp).fillMaxWidth(),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Icon(
-                            Icons.Default.Add,
-                            contentDescription = null,
-                            modifier = Modifier.size(64.dp),
-                            tint = MaterialTheme.colorScheme.primary
-                        )
+                        Icon(Icons.Default.CreateNewFolder, contentDescription = null, modifier = Modifier.size(64.dp), tint = MaterialTheme.colorScheme.primary)
                         Spacer(Modifier.height(16.dp))
-                        Text(
-                            stringResource(R.string.library_no_folder),
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
+                        Text(stringResource(R.string.library_no_folder), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
                         Spacer(Modifier.height(16.dp))
                         Button(onClick = { folderPicker.launch(null) }) {
-                            Icon(Icons.Default.Add, null, Modifier.size(20.dp))
+                            Icon(Icons.Default.CreateNewFolder, null, Modifier.size(20.dp))
                             Spacer(Modifier.width(8.dp))
                             Text(stringResource(R.string.library_select_folder))
                         }
@@ -638,12 +703,7 @@ fun LibraryScreen(
                 }
             }
         } else if (libraryViewModel.isScanning) {
-            Box(
-                Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding),
-                contentAlignment = Alignment.Center
-            ) {
+            Box(Modifier.fillMaxSize().padding(innerPadding), contentAlignment = Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     CircularProgressIndicator()
                     Spacer(Modifier.height(16.dp))
@@ -651,35 +711,19 @@ fun LibraryScreen(
                 }
             }
         } else if (libraryViewModel.fontList.isEmpty()) {
-            Box(
-                Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding)
-                    .padding(24.dp),
-                contentAlignment = Alignment.Center
-            ) {
+            Box(Modifier.fillMaxSize().padding(innerPadding).padding(24.dp), contentAlignment = Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(
-                        Icons.Default.Info,
-                        contentDescription = null,
-                        modifier = Modifier.size(48.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    Icon(Icons.Default.Info, contentDescription = null, modifier = Modifier.size(48.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(Modifier.height(12.dp))
-                    Text(
-                        stringResource(R.string.library_empty),
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    Text(stringResource(R.string.library_empty), style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         } else {
+            val localFonts = libraryViewModel.fontList.filter { it.source == FontSource.LOCAL }
+            val downloadedFonts = libraryViewModel.fontList.filter { it.source == FontSource.DOWNLOADED }
+
             Column(Modifier.fillMaxSize().padding(innerPadding)) {
-                // Folder info bar
-                Surface(
-                    color = MaterialTheme.colorScheme.surfaceVariant,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
+                Surface(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.fillMaxWidth()) {
                     Text(
                         stringResource(R.string.library_folder_info, libraryViewModel.fontList.size),
                         style = MaterialTheme.typography.bodySmall,
@@ -693,57 +737,87 @@ fun LibraryScreen(
                     contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    itemsIndexed(libraryViewModel.fontList, key = { _, item -> item.uri.toString() }) { index, item ->
-                        // Trigger lazy loading when item becomes visible
-                        LaunchedEffect(item.uri) {
-                            libraryViewModel.loadTypeface(context, index)
+                    // --- Local fonts section ---
+                    if (localFonts.isNotEmpty()) {
+                        item(key = "header_local") {
+                            Text(
+                                stringResource(R.string.library_section_local, localFonts.size),
+                                style = MaterialTheme.typography.labelLarge,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.padding(vertical = 4.dp)
+                            )
                         }
-
-                        ElevatedCard(
-                            modifier = Modifier.fillMaxWidth().clickable {
-                                scope.launch {
-                                    val cachedFile = libraryViewModel.prepareFontForPreview(context, item)
-                                    if (cachedFile != null) {
-                                        homeViewModel.setSelectedFontFile(cachedFile, item.fileName)
-                                        homeViewModel.updateDisplayName(item.fileName.removeSuffix(".ttf"))
-                                        navController.navigate(Screen.FontPreview.route)
-                                    } else {
-                                        Toast.makeText(context, context.getString(R.string.error_font_preview), Toast.LENGTH_SHORT).show()
-                                    }
-                                }
+                        itemsIndexed(localFonts, key = { _, item -> "local_${item.uri}" }) { localIdx, item ->
+                            val globalIdx = libraryViewModel.fontList.indexOf(item)
+                            FontCard(context, scope, item, globalIdx, localIdx, onSurfaceColor, libraryViewModel, homeViewModel, navController)
+                        }
+                    }
+                    // --- Downloaded fonts section ---
+                    if (downloadedFonts.isNotEmpty()) {
+                        item(key = "header_downloaded") {
+                            if (localFonts.isNotEmpty()) {
+                                HorizontalDivider(Modifier.padding(vertical = 8.dp))
                             }
-                        ) {
-                            Column(Modifier.padding(16.dp)) {
-                                Text(
-                                    item.fileName,
-                                    style = MaterialTheme.typography.titleSmall,
-                                    color = MaterialTheme.colorScheme.primary
-                                )
-                                Spacer(Modifier.height(8.dp))
-                                if (item.isLoading) {
-                                    LinearProgressIndicator(Modifier.fillMaxWidth())
-                                } else if (item.typeface != null) {
-                                    val previewText = getLibraryPreviewText(index)
-                                    AndroidView(
-                                        factory = { ctx -> makeSampleTextView(ctx, 18f, onSurfaceColor, previewText) },
-                                        update = { tv ->
-                                            tv.typeface = item.typeface
-                                            tv.text = previewText
-                                            tv.setTextColor(onSurfaceColor)
-                                        },
-                                        modifier = Modifier.fillMaxWidth()
-                                    )
-                                } else {
-                                    Text(
-                                        getLibraryPreviewText(index),
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-                            }
+                            Text(
+                                stringResource(R.string.library_section_downloaded, downloadedFonts.size),
+                                style = MaterialTheme.typography.labelLarge,
+                                color = MaterialTheme.colorScheme.secondary,
+                                modifier = Modifier.padding(vertical = 4.dp)
+                            )
+                        }
+                        itemsIndexed(downloadedFonts, key = { _, item -> "dl_${item.uri}" }) { dlIdx, item ->
+                            val globalIdx = libraryViewModel.fontList.indexOf(item)
+                            val previewIdx = localFonts.size + dlIdx
+                            FontCard(context, scope, item, globalIdx, previewIdx, onSurfaceColor, libraryViewModel, homeViewModel, navController)
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun FontCard(
+    context: Context,
+    scope: kotlinx.coroutines.CoroutineScope,
+    item: LocalFontItem,
+    globalIndex: Int,
+    previewIndex: Int,
+    onSurfaceColor: Int,
+    libraryViewModel: LibraryViewModel,
+    homeViewModel: HomeViewModel,
+    navController: androidx.navigation.NavController
+) {
+    LaunchedEffect(item.uri) { libraryViewModel.loadTypeface(context, globalIndex) }
+    ElevatedCard(
+        modifier = Modifier.fillMaxWidth().clickable {
+            scope.launch {
+                val cachedFile = libraryViewModel.prepareFontForPreview(context, item)
+                if (cachedFile != null) {
+                    homeViewModel.setSelectedFontFile(cachedFile, item.fileName)
+                    homeViewModel.updateDisplayName(item.fileName.removeSuffix(".ttf"))
+                    navController.navigate(Screen.FontPreview.route)
+                } else {
+                    Toast.makeText(context, context.getString(R.string.error_font_preview), Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    ) {
+        Column(Modifier.padding(16.dp)) {
+            Text(item.fileName, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
+            Spacer(Modifier.height(8.dp))
+            if (item.isLoading) {
+                LinearProgressIndicator(Modifier.fillMaxWidth())
+            } else if (item.typeface != null) {
+                val previewText = getLibraryPreviewText(previewIndex)
+                AndroidView(
+                    factory = { ctx -> makeSampleTextView(ctx, 18f, onSurfaceColor, previewText) },
+                    update = { tv -> tv.typeface = item.typeface; tv.text = previewText; tv.setTextColor(onSurfaceColor) },
+                    modifier = Modifier.fillMaxWidth()
+                )
+            } else {
+                Text(getLibraryPreviewText(previewIndex), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }
@@ -763,8 +837,8 @@ fun FontPreviewScreen(navController: androidx.navigation.NavController, sharedSt
 
     val context = LocalContext.current
     val onSurfaceColor = MaterialTheme.colorScheme.onSurface.toArgb()
-    val defaultSampleText = remember { getRandomSimpleText(context) }
-    val simpleSampleText = remember { getRandomSimpleText(context) }
+    val defaultSampleText = "疏影横斜水清浅，暗香浮动月黄昏。"
+    val simpleSampleText = "疏影横斜水清浅，暗香浮动月黄昏。"
 
     // Helper to derive the proper typeface for the selected style
     fun deriveTypeface(

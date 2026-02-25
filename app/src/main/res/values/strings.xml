@@ -92,6 +92,20 @@
     <string name="library_select_folder">Select folder</string>
     <string name="library_scanning">Scanning…</string>
     <string name="library_sort_name">Sort by name</string>
+    <string name="library_sort_name_asc">Name (A → Z)</string>
+    <string name="library_sort_name_desc">Name (Z → A)</string>
     <string name="library_sort_date">Sort by date</string>
+    <string name="library_sort_date_asc">Date (oldest first)</string>
+    <string name="library_sort_date_desc">Date (newest first)</string>
     <string name="library_refresh">Refresh</string>
+    <string name="library_section_local">Local fonts (%d)</string>
+    <string name="library_section_downloaded">Downloaded fonts (%d)</string>
+
+    <string name="download_title">Download font</string>
+    <string name="download_url_hint">Font URL (.ttf)</string>
+    <string name="download_start">Download</string>
+    <string name="download_progress">Downloading…</string>
+    <string name="download_success">Font downloaded</string>
+    <string name="download_error">Download failed: %s</string>
+    <string name="download_error_exists">This font already exists</string>
 </resources>

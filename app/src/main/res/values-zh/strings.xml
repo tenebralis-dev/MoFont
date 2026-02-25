@@ -94,6 +94,20 @@
     <string name="library_select_folder">选择文件夹</string>
     <string name="library_scanning">扫描中…</string>
     <string name="library_sort_name">按名称排序</string>
+    <string name="library_sort_name_asc">名称 (A → Z)</string>
+    <string name="library_sort_name_desc">名称 (Z → A)</string>
     <string name="library_sort_date">按时间排序</string>
+    <string name="library_sort_date_asc">时间 (最早优先)</string>
+    <string name="library_sort_date_desc">时间 (最新优先)</string>
     <string name="library_refresh">刷新</string>
+    <string name="library_section_local">本地字体 (%d)</string>
+    <string name="library_section_downloaded">下载字体 (%d)</string>
+
+    <string name="download_title">下载字体</string>
+    <string name="download_url_hint">字体 URL (.ttf)</string>
+    <string name="download_start">下载</string>
+    <string name="download_progress">下载中…</string>
+    <string name="download_success">字体下载成功</string>
+    <string name="download_error">下载失败：%s</string>
+    <string name="download_error_exists">该字体已存在</string>
 </resources>

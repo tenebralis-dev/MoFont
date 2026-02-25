@@ -94,6 +94,20 @@
     <string name="library_select_folder">選擇資料夾</string>
     <string name="library_scanning">掃描中…</string>
     <string name="library_sort_name">按名稱排序</string>
+    <string name="library_sort_name_asc">名稱 (A → Z)</string>
+    <string name="library_sort_name_desc">名稱 (Z → A)</string>
     <string name="library_sort_date">按時間排序</string>
+    <string name="library_sort_date_asc">時間 (最早優先)</string>
+    <string name="library_sort_date_desc">時間 (最新優先)</string>
     <string name="library_refresh">重新整理</string>
+    <string name="library_section_local">本機字型 (%d)</string>
+    <string name="library_section_downloaded">下載字型 (%d)</string>
+
+    <string name="download_title">下載字型</string>
+    <string name="download_url_hint">字型 URL (.ttf)</string>
+    <string name="download_start">下載</string>
+    <string name="download_progress">下載中…</string>
+    <string name="download_success">字型下載成功</string>
+    <string name="download_error">下載失敗：%s</string>
+    <string name="download_error_exists">該字型已存在</string>
 </resources>
