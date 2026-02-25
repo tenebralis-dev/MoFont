@@ -52,7 +52,13 @@ object ShizukuAPI {
         Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED 
     } catch (_: Throwable) { false }
 
-    fun isUsable(): Boolean = isInstalled() && isRunning() && hasPermission()
+    fun isUsable(): Boolean {
+        val installed = isInstalled()
+        val running = isRunning()
+        val permission = hasPermission()
+        Log.d(TAG, "isUsable check: installed=$installed, running=$running, permission=$permission")
+        return installed && running && permission
+    }
 
     fun requestPermission(
         requestCode: Int = 1001,

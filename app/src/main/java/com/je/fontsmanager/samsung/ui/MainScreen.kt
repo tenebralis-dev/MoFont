@@ -294,11 +294,9 @@ fun HomeScreen(navController: androidx.navigation.NavController, sharedState: Ho
                     Toast.makeText(context, context.getString(R.string.toast_already_installed), Toast.LENGTH_LONG).show()
                 },
                 onComplete = { success ->
-                    if (ShizukuAPI.isUsable()) {
-                        isProcessing = false; awaitingInstallResult = false
-                        Toast.makeText(context, context.getString(if (FontInstallerUtils.isAppInstalled(context, pkgName) && success) R.string.toast_install_succeeded else R.string.toast_install_failed), Toast.LENGTH_SHORT).show()
-                        pendingInstallPackage = null
-                    }
+                    isProcessing = false; awaitingInstallResult = false
+                    Toast.makeText(context, context.getString(if (FontInstallerUtils.isAppInstalled(context, pkgName) && success) R.string.toast_install_succeeded else R.string.toast_install_failed), Toast.LENGTH_SHORT).show()
+                    pendingInstallPackage = null
                 },
                 boldTtfFile = selectedBoldFontFile,
                 onRegisterPending = { _, file -> pendingApkFile = file }
@@ -307,7 +305,7 @@ fun HomeScreen(navController: androidx.navigation.NavController, sharedState: Ho
     }
 
     fun performInstall() {
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O && !context.packageManager.canRequestPackageInstalls() && !ShizukuAPI.isUsable()) {
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O && !context.packageManager.canRequestPackageInstalls()) {
             try {
                 val intent = Intent(android.provider.Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES).apply {
                     data = android.net.Uri.parse("package:${context.packageName}")
@@ -987,16 +985,9 @@ object FontInstallerUtils {
             try {
                 onRegisterPending(config.packageName, outputApk)
             } catch (_: Exception) {}
-            if (ShizukuAPI.isUsable()) {
-                val success = ShizukuAPI.installApk(outputApk) { fallbackApk ->
-                    ShizukuAPI.fallbackInstall(context, fallbackApk)
-                }
-                try { CacheCleanupUtils.deleteFiles(outputApk) } catch (_: Exception) {}
-                withContext(Dispatchers.Main) { onComplete(success) }
-            } else {
-                withContext(Dispatchers.Main) {
-                    installApk(context, outputApk, installLauncher)
-                }
+            // 始终使用系统安装界面
+            withContext(Dispatchers.Main) {
+                installApk(context, outputApk, installLauncher)
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error installing font", e)
