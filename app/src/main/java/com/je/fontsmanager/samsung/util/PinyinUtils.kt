@@ -57,7 +57,8 @@ object PinyinUtils {
         }
 
         val result = sb.toString()
-        return result.ifEmpty { "UntitledFont" }
+        if (result.isEmpty()) return "UntitledFont"
+        return if (result[0].isDigit()) "F$result" else result
     }
 
     /** 判断字符是否为 CJK 统一汉字 */
